@@ -1,0 +1,525 @@
+<!--
+  Startups4Startups — frontend de teste
+  Desenvolvido por Matheus Sansonowicz
+
+  DESENHO DA INTERFACE
+  =====================
+  Este arquivo é HTML+CSS+JS puro (sem framework, sem build step) de
+  propósito: o objetivo aqui não é um frontend "de produção", é uma
+  ferramenta pra testar rápido o fluxo completo da API — login →
+  token → CRUD de startups → relatório de IA — sem precisar montar
+  um projeto React/Vue só pra isso.
+
+  A tela é dividida em 3 blocos, cada um mostrado/escondido conforme
+  o estado da aplicação:
+
+    1. #tela-login   → visível quando NINGUÉM está autenticado.
+                        Oferece os 3 métodos de login que o projeto
+                        já tem configurados no Firebase (Google,
+                        Microsoft, email/senha).
+
+    2. #tela-app     → visível DEPOIS do login. Tem duas colunas:
+                        - esquerda: formulário de criar startup
+                        - direita: lista de startups (cada uma em
+                          um "card" com botão de ver relatório)
+
+    3. #modal-relatorio → uma camada flutuante (position: fixed) que
+                        aparece por cima de tudo quando o usuário
+                        clica em "Ver relatório". Fica em estado de
+                        "carregando..." enquanto a API gera o
+                        relatório (pode demorar, já que ela chama
+                        IA), e depois mostra o texto + fontes.
+
+  Esse padrão (esconder/mostrar blocos por CSS + JS trocando a
+  classe "escondido") é a forma mais simples de ter uma "SPA" sem
+  framework — não tem roteamento de verdade, só alternância de
+  visibilidade.
+-->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Startups4Startups — painel de teste</title>
+
+<style>
+  /* Paleta simples, só pra diferenciar visualmente os blocos —
+     não é o foco deste arquivo, então mantive minimalista. */
+  :root {
+    --cor-fundo: #0f172a;
+    --cor-cartao: #1e293b;
+    --cor-borda: #334155;
+    --cor-texto: #e2e8f0;
+    --cor-texto-fraco: #94a3b8;
+    --cor-destaque: #38bdf8;
+    --cor-erro: #f87171;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--cor-fundo);
+    color: var(--cor-texto);
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--cor-borda);
+  }
+
+  header h1 { font-size: 18px; margin: 0; }
+
+  .escondido { display: none !important; }
+
+  /* --- Tela de login --- */
+  #tela-login {
+    max-width: 360px;
+    margin: 80px auto;
+    padding: 24px;
+    background: var(--cor-cartao);
+    border-radius: 12px;
+    border: 1px solid var(--cor-borda);
+  }
+
+  #tela-login h2 { margin-top: 0; }
+
+  .botao {
+    display: block;
+    width: 100%;
+    padding: 10px 14px;
+    margin: 8px 0;
+    border-radius: 8px;
+    border: 1px solid var(--cor-borda);
+    background: #334155;
+    color: var(--cor-texto);
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .botao:hover { background: #475569; }
+  .botao-destaque { background: var(--cor-destaque); color: #0f172a; font-weight: 600; border: none; }
+  .botao-destaque:hover { filter: brightness(1.1); }
+
+  input {
+    width: 100%;
+    padding: 8px 10px;
+    margin: 6px 0;
+    border-radius: 6px;
+    border: 1px solid var(--cor-borda);
+    background: #0f172a;
+    color: var(--cor-texto);
+  }
+
+  .separador {
+    text-align: center;
+    color: var(--cor-texto-fraco);
+    font-size: 12px;
+    margin: 16px 0;
+  }
+
+  .erro { color: var(--cor-erro); font-size: 13px; min-height: 18px; }
+
+  /* --- Tela principal (pós-login), layout em 2 colunas --- */
+  #tela-app {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 24px;
+    padding: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .painel {
+    background: var(--cor-cartao);
+    border: 1px solid var(--cor-borda);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  .painel h2 { margin-top: 0; font-size: 15px; color: var(--cor-texto-fraco); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .lista-startups { display: flex; flex-direction: column; gap: 12px; }
+
+  .card-startup {
+    background: #0f172a;
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+
+  .card-startup h3 { margin: 0 0 4px; font-size: 16px; }
+  .card-startup p { margin: 2px 0; font-size: 13px; color: var(--cor-texto-fraco); }
+
+  .card-startup-acoes { margin-top: 10px; display: flex; gap: 8px; }
+  .card-startup-acoes .botao { width: auto; margin: 0; padding: 6px 12px; font-size: 13px; }
+
+  /* --- Modal de relatório (camada flutuante) --- */
+  #modal-relatorio {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  #modal-relatorio-conteudo {
+    background: var(--cor-cartao);
+    border: 1px solid var(--cor-borda);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 560px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  #relatorio-texto { white-space: pre-wrap; line-height: 1.5; font-size: 14px; }
+  #relatorio-fontes { margin-top: 16px; font-size: 12px; color: var(--cor-texto-fraco); }
+  #relatorio-fontes a { color: var(--cor-destaque); }
+
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #334155;
+    color: var(--cor-texto-fraco);
+    margin-left: 8px;
+  }
+
+  footer {
+    text-align: center;
+    padding: 24px;
+    color: var(--cor-texto-fraco);
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Startups4Startups — painel de teste</h1>
+  <button id="btn-logout" class="botao escondido" style="width:auto; margin:0;">Sair</button>
+</header>
+
+<!-- ============ TELA 1: LOGIN ============ -->
+<!-- Três métodos, batendo com os provedores já ativados no Firebase
+     Console (Google, Microsoft e email/senha). Os botões de OAuth
+     (Google/Microsoft) usam popup — mais simples de testar
+     localmente do que redirect, que exige domínio configurado. -->
+<section id="tela-login">
+  <h2>Entrar</h2>
+
+  <button id="btn-login-google" class="botao">Entrar com Google</button>
+  <button id="btn-login-microsoft" class="botao">Entrar com Microsoft</button>
+
+  <div class="separador">— ou com email/senha —</div>
+
+  <input id="input-email" type="email" placeholder="email@exemplo.com" />
+  <input id="input-senha" type="password" placeholder="senha" />
+  <button id="btn-login-email" class="botao botao-destaque">Entrar</button>
+  <button id="btn-cadastro-email" class="botao" style="font-size:12px;">Criar conta com esse email/senha</button>
+
+  <p id="login-erro" class="erro"></p>
+</section>
+
+<!-- ============ TELA 2: APP (pós-login) ============ -->
+<section id="tela-app" class="escondido">
+
+  <!-- Coluna esquerda: formulário de criação -->
+  <div class="painel">
+    <h2>Nova startup</h2>
+    <input id="f-fantasy-name" placeholder="Nome fantasia" />
+    <input id="f-legal-name" placeholder="Razão social" />
+    <input id="f-cnpj" placeholder="CNPJ (14 dígitos, só números)" maxlength="14" />
+    <input id="f-description" placeholder="Descrição" />
+    <input id="f-founded-date" type="date" />
+    <input id="f-website" placeholder="Website (opcional)" />
+    <button id="btn-criar-startup" class="botao botao-destaque">Cadastrar</button>
+    <p id="criar-erro" class="erro"></p>
+  </div>
+
+  <!-- Coluna direita: lista das startups já cadastradas -->
+  <div class="painel">
+    <h2>Startups cadastradas</h2>
+    <div id="lista-startups" class="lista-startups">
+      <p style="color:var(--cor-texto-fraco); font-size:13px;">Carregando...</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MODAL: relatório de mercado ============ -->
+<!-- Fica escondido por padrão; JS mostra ele ao clicar em
+     "Ver relatório" num card. O estado de "gerando..." existe
+     porque a chamada pode demorar alguns segundos (a API busca
+     dados de mercado E chama uma IA antes de responder, quando
+     não tem cache fresco). -->
+<div id="modal-relatorio" class="escondido">
+  <div id="modal-relatorio-conteudo">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2 id="relatorio-titulo" style="margin:0;">Relatório</h2>
+      <button id="btn-fechar-modal" class="botao" style="width:auto; margin:0;">Fechar</button>
+    </div>
+    <p id="relatorio-status" style="color:var(--cor-texto-fraco); font-size:13px;"></p>
+    <div id="relatorio-texto"></div>
+    <div id="relatorio-fontes"></div>
+    <button id="btn-atualizar-relatorio" class="botao" style="margin-top:16px;">Atualizar agora</button>
+  </div>
+</div>
+
+<footer>Startups4Startups — Desenvolvido por Matheus Sansonowicz</footer>
+
+<!--
+  Firebase App + Auth via CDN (jsDelivr, build "compat" — usa a API
+  antiga firebase.auth() em vez do formato modular novo, porque é
+  mais direto de usar sem bundler/import).
+-->
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.13.2/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.13.2/firebase-auth-compat.js"></script>
+
+<script>
+// =====================================================================
+// CONFIGURAÇÃO — preencha com os dados do SEU projeto Firebase
+// (Firebase Console → Configurações do projeto → Geral → seus apps →
+// "Config" do SDK). Isso é diferente do FIREBASE_ACCESS_TOKEN do
+// backend: esta é a config PÚBLICA do app web, feita pra ficar no
+// client (não é segredo).
+// =====================================================================
+const firebaseConfig = {
+  apiKey: "your api key here",
+  authDomain: "your auth domain here",
+  projectId: "your project id here",
+};
+
+// Endereço da API. Como agora a própria API Rust também SERVE este
+// arquivo (via ServeDir em src/main.rs), a página e a API estão na
+// mesma origem — então uma string vazia já resolve pra "mesmo host",
+// sem precisar escrever localhost:3000 explicitamente. Se um dia você
+// separar frontend e backend de novo (hospedagens diferentes), troque
+// isso de volta pra uma URL absoluta.
+const API_BASE_URL = "";
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+
+// =====================================================================
+// ESTADO E REFERÊNCIAS DE ELEMENTOS
+// Nada de framework aqui — só pegamos os elementos por id uma vez e
+// vamos atualizando o DOM diretamente conforme o estado muda.
+// =====================================================================
+const telaLogin = document.getElementById("tela-login");
+const telaApp = document.getElementById("tela-app");
+const btnLogout = document.getElementById("btn-logout");
+const loginErro = document.getElementById("login-erro");
+
+// =====================================================================
+// AUTENTICAÇÃO
+// =====================================================================
+
+document.getElementById("btn-login-google").onclick = () => {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(mostrarErroLogin);
+};
+
+document.getElementById("btn-login-microsoft").onclick = () => {
+  // "microsoft.com" é o id do provedor OIDC que você ativou na
+  // tela "Configurar provedor" do Firebase Console.
+  const provider = new firebase.auth.OAuthProvider("microsoft.com");
+  auth.signInWithPopup(provider).catch(mostrarErroLogin);
+};
+
+document.getElementById("btn-login-email").onclick = () => {
+  const email = document.getElementById("input-email").value;
+  const senha = document.getElementById("input-senha").value;
+  auth.signInWithEmailAndPassword(email, senha).catch(mostrarErroLogin);
+};
+
+document.getElementById("btn-cadastro-email").onclick = () => {
+  const email = document.getElementById("input-email").value;
+  const senha = document.getElementById("input-senha").value;
+  auth.createUserWithEmailAndPassword(email, senha).catch(mostrarErroLogin);
+};
+
+btnLogout.onclick = () => auth.signOut();
+
+function mostrarErroLogin(erro) {
+  loginErro.textContent = erro.message;
+}
+
+// onAuthStateChanged dispara sempre que o estado de login muda
+// (login, logout, ou até no carregamento inicial da página se já
+// havia uma sessão salva) — é o único lugar que decide qual tela
+// mostrar, então login/logout nunca ficam "fora de sincronia" com
+// a UI.
+auth.onAuthStateChanged((usuario) => {
+  if (usuario) {
+    telaLogin.classList.add("escondido");
+    telaApp.classList.remove("escondido");
+    btnLogout.classList.remove("escondido");
+    carregarStartups();
+  } else {
+    telaLogin.classList.remove("escondido");
+    telaApp.classList.add("escondido");
+    btnLogout.classList.add("escondido");
+  }
+});
+
+// =====================================================================
+// CLIENTE HTTP DA API
+// Uma função central que já injeta o Bearer token em toda chamada —
+// assim nenhuma outra função do arquivo precisa se preocupar com
+// autenticação, só chamam apiFetch(...) como se fosse um fetch normal.
+// =====================================================================
+async function apiFetch(caminho, opcoes = {}) {
+  const token = await auth.currentUser.getIdToken();
+
+  const resposta = await fetch(API_BASE_URL + caminho, {
+    ...opcoes,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+      ...(opcoes.headers || {}),
+    },
+  });
+
+  if (!resposta.ok) {
+    const corpoErro = await resposta.json().catch(() => ({}));
+    throw new Error(corpoErro.erro || `Erro HTTP ${resposta.status}`);
+  }
+
+  // DELETE devolve 204 sem corpo — nada pra parsear.
+  if (resposta.status === 204) return null;
+  return resposta.json();
+}
+
+// =====================================================================
+// LISTA DE STARTUPS
+// =====================================================================
+async function carregarStartups() {
+  const lista = document.getElementById("lista-startups");
+  lista.innerHTML = "<p style='color:var(--cor-texto-fraco); font-size:13px;'>Carregando...</p>";
+
+  try {
+    const startups = await apiFetch("/startups");
+    renderizarStartups(startups);
+  } catch (erro) {
+    lista.innerHTML = `<p class="erro">${erro.message}</p>`;
+  }
+}
+
+function renderizarStartups(startups) {
+  const lista = document.getElementById("lista-startups");
+
+  if (startups.length === 0) {
+    lista.innerHTML = "<p style='color:var(--cor-texto-fraco); font-size:13px;'>Nenhuma startup cadastrada ainda.</p>";
+    return;
+  }
+
+  // Reconstrói a lista inteira a cada carregamento — simples e
+  // suficiente pro tamanho de lista de um painel de teste; um
+  // frontend "de produção" com framework faria diffing, aqui não
+  // vale a complexidade.
+  lista.innerHTML = startups.map((s) => `
+    <div class="card-startup">
+      <h3>${escaparHtml(s.fantasy_name)}</h3>
+      <p>${escaparHtml(s.description)}</p>
+      <p>CNPJ: ${escaparHtml(s.cnpj)}${s.website ? " · " + escaparHtml(s.website) : ""}</p>
+      <div class="card-startup-acoes">
+        <button class="botao" onclick="abrirRelatorio('${s.id}', '${escaparHtml(s.fantasy_name)}')">Ver relatório</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+// Escapa HTML pra evitar que uma descrição/nome com "<script>"
+// digitado pelo usuário seja interpretado como HTML de verdade.
+function escaparHtml(texto) {
+  const div = document.createElement("div");
+  div.textContent = texto;
+  return div.innerHTML;
+}
+
+// =====================================================================
+// CRIAR STARTUP
+// =====================================================================
+document.getElementById("btn-criar-startup").onclick = async () => {
+  const erroEl = document.getElementById("criar-erro");
+  erroEl.textContent = "";
+
+  const corpo = {
+    fantasy_name: document.getElementById("f-fantasy-name").value,
+    legal_name: document.getElementById("f-legal-name").value,
+    cnpj: document.getElementById("f-cnpj").value,
+    description: document.getElementById("f-description").value,
+    founded_date: document.getElementById("f-founded-date").value,
+    website: document.getElementById("f-website").value || null,
+  };
+
+  try {
+    await apiFetch("/startups", { method: "POST", body: JSON.stringify(corpo) });
+    document.querySelectorAll("#tela-app input").forEach((i) => (i.value = ""));
+    carregarStartups();
+  } catch (erro) {
+    erroEl.textContent = erro.message;
+  }
+};
+
+// =====================================================================
+// RELATÓRIO (modal)
+// =====================================================================
+const modal = document.getElementById("modal-relatorio");
+let startupAtualId = null;
+
+async function abrirRelatorio(startupId, nomeStartup) {
+  startupAtualId = startupId;
+  document.getElementById("relatorio-titulo").textContent = "Relatório — " + nomeStartup;
+  document.getElementById("relatorio-status").textContent = "Gerando relatório (pode levar alguns segundos)...";
+  document.getElementById("relatorio-texto").textContent = "";
+  document.getElementById("relatorio-fontes").innerHTML = "";
+  modal.classList.remove("escondido");
+
+  await buscarRelatorio(startupId, "/report");
+}
+
+async function buscarRelatorio(startupId, caminho) {
+  try {
+    const relatorio = await apiFetch(`/startups/${startupId}${caminho}`, {
+      method: caminho.includes("refresh") ? "POST" : "GET",
+    });
+    renderizarRelatorio(relatorio);
+  } catch (erro) {
+    document.getElementById("relatorio-status").textContent = "";
+    document.getElementById("relatorio-texto").innerHTML = `<span class="erro">${erro.message}</span>`;
+  }
+}
+
+function renderizarRelatorio(relatorio) {
+  const badge = relatorio.from_cache
+    ? '<span class="badge">em cache</span>'
+    : '<span class="badge">gerado agora</span>';
+
+  document.getElementById("relatorio-status").innerHTML =
+    "Atualizado em " + new Date(relatorio.generated_at).toLocaleString("pt-BR") + badge;
+
+  document.getElementById("relatorio-texto").textContent = relatorio.content;
+
+  document.getElementById("relatorio-fontes").innerHTML = relatorio.sources.length
+    ? "Fontes: " + relatorio.sources.map((f) => `<a href="${f}" target="_blank">${f}</a>`).join(", ")
+    : "";
+}
+
+document.getElementById("btn-fechar-modal").onclick = () => modal.classList.add("escondido");
+
+document.getElementById("btn-atualizar-relatorio").onclick = async () => {
+  document.getElementById("relatorio-status").textContent = "Atualizando (ignorando cache)...";
+  await buscarRelatorio(startupAtualId, "/report/refresh");
+};
+</script>
+</body>
+</html>

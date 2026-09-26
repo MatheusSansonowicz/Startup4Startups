@@ -1,0 +1,11 @@
+D:\projetos_programacao\Statup4Sturtups\Startup4Startups\target\debug\deps\core_detect-dcdcd145a04e012e.d: C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\lib.rs C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\macros.rs C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\arch\x86.rs C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\os\x86.rs C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\cache.rs
+
+D:\projetos_programacao\Statup4Sturtups\Startup4Startups\target\debug\deps\libcore_detect-dcdcd145a04e012e.rlib: C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\lib.rs C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\macros.rs C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\arch\x86.rs C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\os\x86.rs C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\cache.rs
+
+D:\projetos_programacao\Statup4Sturtups\Startup4Startups\target\debug\deps\libcore_detect-dcdcd145a04e012e.rmeta: C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\lib.rs C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\macros.rs C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\arch\x86.rs C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\os\x86.rs C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\cache.rs
+
+C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\lib.rs:
+C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\macros.rs:
+C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\arch\x86.rs:
+C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\os\x86.rs:
+C:\Users\teteu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\core_detect-1.0.0\src\cache.rs:
